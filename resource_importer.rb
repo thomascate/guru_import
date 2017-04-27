@@ -24,7 +24,7 @@ end
 page = Nokogiri::HTML(open("https://docs.chef.io/resource_examples.html"))
 
 resources = {}
-html = page.css("div.section.section").to_a.each do | node |
+page.css("div.section.section").to_a.each do | node |
   markdown = ReverseMarkdown.convert(node.inner_html, github_flavored: true)
   resources[node['id']] = {
     "preferredPhrase" => "#{node['id']} resource example",
@@ -71,14 +71,12 @@ end
 
 resources.each do | resource, content |
 
-  data = 
   #check if we've seen this card before
   if card_data.key?(content['preferredPhrase']) then
     puts "we have seen this card"
     #has the content changed since last time we've seen it?
     if !card_data[content['preferredPhrase']]['content'].eql?(content['content']) then
-      puts "card has chaged updating card"
-      binding.pry
+      puts "card has changed updating card"
       card_data[content['preferredPhrase']] = update_card(config, content, card_data[content['preferredPhrase']]['id'])
       flush_to_disk(card_data)
     else
