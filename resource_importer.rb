@@ -31,7 +31,7 @@ page.css("div.section.section").to_a.each do | node |
     "boards" => [{"id" => config['board_id']}],
     "collection" => {"id" => config['collection_id']},
     "content" => markdown.gsub('¶', ''),
-    "verificationInterval" => 30,
+    "verificationInterval" => 180,
     "shareStatus" => "PUBLIC",
     "tags" => config['tags'],
     "verifiers" => [{
@@ -50,7 +50,7 @@ def post_card (config, content)
   request = Net::HTTP::Post.new(uri.request_uri, {'Content-Type' =>'application/json'})
   request.basic_auth(config['api_user'], config['api_key'])
   request.body = content.to_json
-  puts "posting data"
+  puts "creating card"
   response = http.request(request)
   puts response.code
   response.body.force_encoding('UTF-8')
@@ -58,7 +58,17 @@ def post_card (config, content)
 end
 
 def update_card (config, content, id)
-  return content
+  uri = URI("#{config['guru_url']}/v1/cards/#{id}/extended")
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  request = Net::HTTP::Post.new(uri.request_uri, {'Content-Type' =>'application/json'})
+  request.basic_auth(config['api_user'], config['api_key'])
+  request.body = content.to_json
+  puts "updating card"
+  response = http.request(request)
+  puts response.code
+  response.body.force_encoding('UTF-8')
+  return response.body
 end
 
 def flush_to_disk (card_data)
@@ -77,7 +87,8 @@ resources.each do | resource, content |
     #has the content changed since last time we've seen it?
     if !card_data[content['preferredPhrase']]['content'].eql?(content['content']) then
       puts "card has changed updating card"
-      card_data[content['preferredPhrase']] = update_card(config, content, card_data[content['preferredPhrase']]['id'])
+      binding.pry
+      card_data[content['preferredPhrase']] = JSON.parse(update_card(config, content, card_data[content['preferredPhrase']]['id']))
       flush_to_disk(card_data)
     else
       puts "card has not changed"
@@ -88,8 +99,6 @@ resources.each do | resource, content |
     flush_to_disk(card_data)
   end
 end
-
-
 
 exit
 
