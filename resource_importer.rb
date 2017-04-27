@@ -23,14 +23,27 @@ end
 #pull all data from docs.chef.io and convert into a hash
 page = Nokogiri::HTML(open("https://docs.chef.io/resource_examples.html"))
 
+#get all resource direct links
+doc_links = {}
+page.css('#nav-docs-list > li:nth-child(3) > ul > li:nth-child(5) > ul > li:nth-child(8) > ul > li a').each do |node|
+  doc_links[node.get_attribute('title')] = "https://docs.chef.io#{node.get_attribute('href')}"
+end
+
 resources = {}
 page.css("div.section.section").to_a.each do | node |
   markdown = ReverseMarkdown.convert(node.inner_html, github_flavored: true)
+
+  card_content = markdown.gsub('¶', '')
+
+  if doc_links.key?(node['id']) then
+    card_content << "\nOfficial docs available at\n#{doc_links[node['id']]}"
+  end
+
   resources[node['id']] = {
     "preferredPhrase" => "#{node['id']} resource example",
     "boards" => [{"id" => config['board_id']}],
     "collection" => {"id" => config['collection_id']},
-    "content" => markdown.gsub('¶', ''),
+    "content" => card_content,
     "verificationInterval" => 180,
     "shareStatus" => "PUBLIC",
     "tags" => config['tags'],
@@ -61,7 +74,7 @@ def update_card (config, content, id)
   uri = URI("#{config['guru_url']}/v1/cards/#{id}/extended")
   http = Net::HTTP.new(uri.host, uri.port)
   http.use_ssl = true
-  request = Net::HTTP::Post.new(uri.request_uri, {'Content-Type' =>'application/json'})
+  request = Net::HTTP::Put.new(uri.request_uri, {'Content-Type' =>'application/json'})
   request.basic_auth(config['api_user'], config['api_key'])
   request.body = content.to_json
   puts "updating card"
@@ -87,7 +100,6 @@ resources.each do | resource, content |
     #has the content changed since last time we've seen it?
     if !card_data[content['preferredPhrase']]['content'].eql?(content['content']) then
       puts "card has changed updating card"
-      binding.pry
       card_data[content['preferredPhrase']] = JSON.parse(update_card(config, content, card_data[content['preferredPhrase']]['id']))
       flush_to_disk(card_data)
     else
